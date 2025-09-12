@@ -1,0 +1,71 @@
+{% extends "base.html" %} {% block title %}Home - Flask App{% endblock %} {%
+block content %}
+<div class="row">
+  <div class="col-md-8 mx-auto">
+    <div class="jumbotron bg-primary text-white p-5 rounded">
+      <h1 class="display-4">Welcome to Flask!</h1>
+      <p class="lead">
+        This is a basic Flask application setup with Bootstrap styling.
+      </p>
+      <hr class="my-4" />
+      <p>
+        Click the button below to test the API endpoint or start chatting with
+        our AI!
+      </p>
+      <div class="d-flex gap-2 flex-wrap">
+        <button class="btn btn-light btn-lg" onclick="testAPI()">
+          Test API
+        </button>
+        <a href="{{ url_for('chat_page') }}" class="btn btn-success btn-lg">
+          <i class="fas fa-comments me-2"></i>Start Chatting
+        </a>
+        <a href="{{ url_for('voice_page') }}" class="btn btn-warning btn-lg">
+          <i class="fas fa-microphone me-2"></i>Test Voice
+        </a>
+      </div>
+    </div>
+
+    <div class="row mt-4">
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">API Endpoints</h5>
+            <p class="card-text">Available API endpoints:</p>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item">
+                <code>GET /api/hello</code> - Simple hello message
+              </li>
+              <li class="list-group-item">
+                <code>POST /api/echo</code> - Echo back JSON data
+              </li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div class="col-md-6">
+        <div class="card">
+          <div class="card-body">
+            <h5 class="card-title">Features</h5>
+            <ul class="list-group list-group-flush">
+              <li class="list-group-item">✅ Flask application setup</li>
+              <li class="list-group-item">✅ Bootstrap styling</li>
+              <li class="list-group-item">✅ Template inheritance</li>
+              <li class="list-group-item">✅ API endpoints</li>
+              <li class="list-group-item">✅ Error handling</li>
+              <li class="list-group-item">✅ AI Chatbot with Gemini</li>
+              <li class="list-group-item">✅ Conversation memory</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="api-response" class="mt-4" style="display: none">
+      <div class="alert alert-info">
+        <h6>API Response:</h6>
+        <pre id="response-content"></pre>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,66 @@
+{% extends "base.html" %} {% block title %}Voice Test - Flask App{% endblock %}
+{% block content %}
+<div class="row">
+  <div class="col-md-8 mx-auto">
+    <div class="card">
+      <div class="card-header bg-secondary text-white">
+        <h4 class="mb-0">
+          <i class="fas fa-microphone me-2"></i>Gemini TTS Tester
+        </h4>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label for="tts-text" class="form-label">Text to speak</label>
+          <textarea
+            id="tts-text"
+            class="form-control"
+            rows="4"
+            placeholder="Type something for the model to say..."
+          >
+Say cheerfully: Have a wonderful day!</textarea
+          >
+        </div>
+        <div class="row g-3 align-items-end">
+          <div class="col-md-6">
+            <label for="voice-name" class="form-label"
+              >Voice (System TTS)</label
+            >
+            <select id="voice-name" class="form-select" disabled>
+              <option value="default" selected>System Default Voice</option>
+            </select>
+            <small class="form-text text-muted"
+              >Uses your system's built-in TTS engine</small
+            >
+          </div>
+          <div class="col-md-6">
+            <label for="model-name" class="form-label">Model</label>
+            <select id="model-name" class="form-select" disabled>
+              <option value="pyttsx3" selected>pyttsx3</option>
+            </select>
+            <small class="form-text text-muted"
+              >Cross-platform TTS library</small
+            >
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mt-3">
+          <button id="synthesize-btn" class="btn btn-primary">
+            <i class="fas fa-play me-1"></i>Synthesize
+          </button>
+          <button id="download-btn" class="btn btn-outline-secondary" disabled>
+            <i class="fas fa-download me-1"></i>Download WAV
+          </button>
+        </div>
+
+        <div class="mt-4">
+          <audio id="tts-audio" controls style="width: 100%"></audio>
+        </div>
+
+        <div id="tts-status" class="mt-3 text-muted"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="{{ url_for('static', filename='js/voice.js') }}"></script>
+{% endblock %}

@@ -1,0 +1,138 @@
+{% extends "base.html" %} {% block title %}Google Gemini TTS Test - Flask App{%
+endblock %} {% block content %}
+<div class="row">
+  <div class="col-md-10 mx-auto">
+    <div class="card">
+      <div class="card-header bg-primary text-white">
+        <h4 class="mb-0">
+          <i class="fas fa-robot me-2"></i>Google Gemini TTS API Test
+        </h4>
+      </div>
+      <div class="card-body">
+        <div class="mb-3">
+          <label for="gemini-text" class="form-label">Text to synthesize</label>
+          <textarea
+            id="gemini-text"
+            class="form-control"
+            rows="6"
+            placeholder="Enter text for Gemini TTS to synthesize..."
+          >
+TTS the following conversation between Joe and Jane:
+Joe: How's it going today Jane?
+Jane: Not too bad, how about you?</textarea
+          >
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label for="speaker1-name" class="form-label">Speaker 1 Name</label>
+            <input
+              type="text"
+              id="speaker1-name"
+              class="form-control"
+              value="Joe"
+              placeholder="Speaker name"
+            />
+          </div>
+          <div class="col-md-6">
+            <label for="speaker1-voice" class="form-label"
+              >Speaker 1 Voice</label
+            >
+            <select id="speaker1-voice" class="form-select">
+              <option value="Kore" selected>Kore — Firm</option>
+              <option value="Puck">Puck — Upbeat</option>
+              <option value="Zephyr">Zephyr — Bright</option>
+              <option value="Charon">Charon — Informative</option>
+              <option value="Enceladus">Enceladus — Breathy</option>
+              <option value="Leda">Leda — Youthful</option>
+              <option value="Umbriel">Umbriel — Easy-going</option>
+              <option value="Iapetus">Iapetus — Clear</option>
+              <option value="Aoede">Aoede — Breezy</option>
+              <option value="Callirrhoe">Callirrhoe — Easy-going</option>
+              <option value="Autonoe">Autonoe — Bright</option>
+              <option value="Orus">Orus — Firm</option>
+              <option value="Fenrir">Fenrir — Excitable</option>
+              <option value="Laomedeia">Laomedeia — Upbeat</option>
+              <option value="Achird">Achird — Friendly</option>
+              <option value="Zubenelgenubi">Zubenelgenubi — Casual</option>
+              <option value="Vindemiatrix">Vindemiatrix — Gentle</option>
+              <option value="Sulafat">Sulafat — Warm</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row g-3 mb-3">
+          <div class="col-md-6">
+            <label for="speaker2-name" class="form-label">Speaker 2 Name</label>
+            <input
+              type="text"
+              id="speaker2-name"
+              class="form-control"
+              value="Jane"
+              placeholder="Speaker name"
+            />
+          </div>
+          <div class="col-md-6">
+            <label for="speaker2-voice" class="form-label"
+              >Speaker 2 Voice</label
+            >
+            <select id="speaker2-voice" class="form-select">
+              <option value="Kore">Kore — Firm</option>
+              <option value="Puck" selected>Puck — Upbeat</option>
+              <option value="Zephyr">Zephyr — Bright</option>
+              <option value="Charon">Charon — Informative</option>
+              <option value="Enceladus">Enceladus — Breathy</option>
+              <option value="Leda">Leda — Youthful</option>
+              <option value="Umbriel">Umbriel — Easy-going</option>
+              <option value="Iapetus">Iapetus — Clear</option>
+              <option value="Aoede">Aoede — Breezy</option>
+              <option value="Callirrhoe">Callirrhoe — Easy-going</option>
+              <option value="Autonoe">Autonoe — Bright</option>
+              <option value="Orus">Orus — Firm</option>
+              <option value="Fenrir">Fenrir — Excitable</option>
+              <option value="Laomedeia">Laomedeia — Upbeat</option>
+              <option value="Achird">Achird — Friendly</option>
+              <option value="Zubenelgenubi">Zubenelgenubi — Casual</option>
+              <option value="Vindemiatrix">Vindemiatrix — Gentle</option>
+              <option value="Sulafat">Sulafat — Warm</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="d-flex gap-2 mb-3">
+          <button id="gemini-synthesize-btn" class="btn btn-primary">
+            <i class="fas fa-play me-1"></i>Synthesize with Gemini
+          </button>
+          <button
+            id="gemini-download-btn"
+            class="btn btn-outline-secondary"
+            disabled
+          >
+            <i class="fas fa-download me-1"></i>Download WAV
+          </button>
+        </div>
+
+        <div class="mt-4">
+          <audio id="gemini-audio" controls style="width: 100%"></audio>
+        </div>
+
+        <div id="gemini-status" class="mt-3 text-muted"></div>
+
+        <div class="mt-4">
+          <h6>API Information:</h6>
+          <ul class="list-unstyled">
+            <li><strong>Model:</strong> gemini-2.5-flash-preview-tts</li>
+            <li>
+              <strong>Features:</strong> Multi-speaker support, high-quality
+              voices
+            </li>
+            <li><strong>Format:</strong> WAV audio output</li>
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %} {% block extra_js %}
+<script src="{{ url_for('static', filename='js/gemini_tts.js') }}"></script>
+{% endblock %}
