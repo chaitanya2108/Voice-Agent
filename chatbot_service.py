@@ -6,6 +6,7 @@ from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from config import Config
+from restaurant_data import restaurant_context
 
 class ChatbotService:
     """Service class for handling chatbot conversations with memory"""
@@ -18,42 +19,46 @@ class ChatbotService:
         # Initialize the Gemini model
         self.llm = ChatGoogleGenerativeAI(
             model="gemini-1.5-flash",
-            google_api_key=Config.GEMINI_API_KEY,
-            temperature=Config.CHAT_MODEL_TEMPERATURE,
-            max_output_tokens=1024
+            api_key=Config.GEMINI_API_KEY,
+            temperature=Config.CHAT_MODEL_TEMPERATURE
         )
 
         # Store conversation history for each session using modern approach
         self.chats_by_session_id = {}
 
+        # Initialize restaurant context
+        self.restaurant_context = restaurant_context
+
         # Create the prompt template
         self.prompt = self._create_prompt_template()
 
     def _create_prompt_template(self) -> ChatPromptTemplate:
-        """Create the prompt template for casual conversation"""
+        """Create the prompt template for restaurant assistant conversation"""
 
-        # Define the system prompt for casual conversation
-        system_prompt = """You are a friendly, engaging chatbot that loves to have random casual conversations.
-        Your personality traits:
-        - You're curious and ask interesting questions
-        - You share fun facts and stories
-        - You're empathetic and supportive
-        - You have a good sense of humor
-        - You're knowledgeable about many topics
-        - You remember previous parts of the conversation
-        - You're enthusiastic and positive
+        # Define the system prompt for restaurant assistant
+        system_prompt = """You are a helpful and friendly restaurant assistant for Bella Vista Ristorante, an authentic Italian restaurant. Your role is to:
 
-        Guidelines for responses:
-        - Keep responses conversational and natural (2-4 sentences typically)
-        - Ask follow-up questions to keep the conversation flowing
-        - Share relevant personal anecdotes or fun facts when appropriate
-        - Be encouraging and supportive
-        - Use emojis occasionally but not excessively
-        - If the user seems down, try to cheer them up
-        - If they're excited about something, match their enthusiasm
-        - Remember what you've talked about before in this conversation
+1. Greet customers warmly and help them with their dining needs
+2. Provide information about the restaurant, menu, hours, and policies
+3. Take food orders and answer questions about menu items
+4. Handle special dietary requirements and allergen information
+5. Provide recommendations based on customer preferences
+6. Process orders and confirm details
+7. Be knowledgeable about Italian cuisine and wine pairings
 
-        Always respond as if you're talking to a friend you're excited to chat with!"""
+Key guidelines:
+- Always be polite, professional, and enthusiastic about our food
+- Use the restaurant context to provide accurate information
+- Ask clarifying questions when needed (party size, dietary restrictions, etc.)
+- Offer suggestions and upsell when appropriate
+- Confirm order details before finalizing
+- Remember customer preferences and previous interactions
+- If you don't know something, say so and offer to find out
+
+Current conversation context: {context}
+Current order status: {order_status}
+
+Remember: You're representing Bella Vista Ristorante, so maintain our reputation for excellent service and authentic Italian hospitality."""
 
         # Create the prompt template
         prompt = ChatPromptTemplate.from_messages([
@@ -74,7 +79,7 @@ class ChatbotService:
 
     def get_response(self, user_input: str, session_id: str = "default") -> Dict[str, Any]:
         """
-        Get a response from the chatbot
+        Get a response from the restaurant assistant chatbot
 
         Args:
             user_input: The user's message
@@ -84,6 +89,9 @@ class ChatbotService:
             Dictionary containing the response and metadata
         """
         try:
+            # Process restaurant-specific commands first
+            processed_input, context_update = self._process_restaurant_commands(user_input)
+
             # Get chat history for this session
             chat_history = self.get_chat_history(session_id)
 
@@ -93,10 +101,16 @@ class ChatbotService:
                 # Keep only the most recent messages
                 history_messages = history_messages[-(Config.MAX_CONVERSATION_HISTORY * 2):]
 
-            # Create the prompt with history
+            # Get current context and order status
+            context_summary = self.restaurant_context.get_context_summary()
+            order_status = self.restaurant_context.get_current_order()
+
+            # Create the prompt with history and context
             prompt_input = {
-                "input": user_input,
-                "history": history_messages
+                "input": processed_input,
+                "history": history_messages,
+                "context": context_summary,
+                "order_status": order_status
             }
 
             # Format the prompt
@@ -111,15 +125,28 @@ class ChatbotService:
             else:
                 response_content = str(response)
 
+            # Handle payment processing if requested
+            payment_info = None
+            if any(keyword in processed_input.lower() for keyword in ['pay', 'payment', 'checkout', 'pay for', 'process payment']):
+                payment_info = self._process_payment_request()
+
+            # Handle order completion if requested
+            order_completion = None
+            if any(keyword in processed_input.lower() for keyword in ['complete order', 'finish order', 'finalize order', 'place order']):
+                order_completion = self._process_order_completion()
+
             # Add messages to chat history
             chat_history.add_user_message(user_input)
-            chat_history.add_ai_message(response_content)
+            chat_history.add_ai_message(str(response_content))
 
             return {
                 "response": response_content,
                 "session_id": session_id,
                 "status": "success",
-                "model": "gemini-1.5-flash"
+                "model": "gemini-1.5-flash",
+                "context_update": context_update,
+                "payment_info": payment_info,
+                "order_completion": order_completion
             }
 
         except Exception as e:
@@ -170,23 +197,149 @@ class ChatbotService:
             print(f"Error clearing conversation: {e}")
             return False
 
+    def _process_restaurant_commands(self, user_input: str) -> tuple:
+        """Process restaurant-specific commands and return processed input and context update"""
+        input_lower = user_input.lower().strip()
+        context_update = None
+
+        # Handle menu requests
+        if any(keyword in input_lower for keyword in ['menu', 'food', 'dishes', 'what do you have']):
+            if 'appetizer' in input_lower or 'starter' in input_lower:
+                context_update = self.restaurant_context.get_menu_category('appetizers')
+            elif 'pasta' in input_lower:
+                context_update = self.restaurant_context.get_menu_category('pasta')
+            elif 'pizza' in input_lower:
+                context_update = self.restaurant_context.get_menu_category('pizza')
+            elif 'main' in input_lower or 'entree' in input_lower:
+                context_update = self.restaurant_context.get_menu_category('mains')
+            elif 'dessert' in input_lower or 'sweet' in input_lower:
+                context_update = self.restaurant_context.get_menu_category('desserts')
+            elif 'drink' in input_lower or 'beverage' in input_lower or 'wine' in input_lower:
+                context_update = self.restaurant_context.get_menu_category('beverages')
+            else:
+                context_update = self.restaurant_context.get_full_menu()
+
+        # Handle restaurant info requests
+        elif any(keyword in input_lower for keyword in ['hours', 'open', 'close', 'location', 'address', 'phone', 'contact']):
+            context_update = self.restaurant_context.get_restaurant_info()
+
+        # Handle order requests
+        elif any(keyword in input_lower for keyword in ['order', 'add', 'get', 'want', 'like to have']):
+            # Extract item name and quantity from input
+            # This is a simplified version - in production, you'd use NLP
+            words = input_lower.split()
+            quantity = 1
+            item_name = ""
+
+            # Look for quantity indicators
+            for i, word in enumerate(words):
+                if word.isdigit():
+                    quantity = int(word)
+                    item_name = " ".join(words[i+1:])
+                    break
+                elif word in ['a', 'an', 'one']:
+                    quantity = 1
+                    item_name = " ".join(words[i+1:])
+                    break
+
+            if not item_name:
+                item_name = user_input
+
+            context_update = self.restaurant_context.add_to_order(item_name, quantity)
+
+        # Handle order status requests
+        elif any(keyword in input_lower for keyword in ['my order', 'current order', 'what did i order', 'order status']):
+            context_update = self.restaurant_context.get_current_order()
+
+        # Handle search requests
+        elif any(keyword in input_lower for keyword in ['search', 'find', 'looking for']):
+            # Extract search term
+            search_terms = []
+            for keyword in ['search for', 'find', 'looking for']:
+                if keyword in input_lower:
+                    search_terms = input_lower.split(keyword)[1].strip().split()
+                    break
+
+            if search_terms:
+                search_query = " ".join(search_terms)
+                context_update = self.restaurant_context.search_menu(search_query)
+
+        # Handle payment requests
+        elif any(keyword in input_lower for keyword in ['pay', 'payment', 'checkout', 'pay for', 'process payment']):
+            context_update = "I can help you process your payment through our Clover POS system. Let me check if we're connected to the payment processor."
+            # This will trigger payment processing in the main response logic
+
+        # Handle order completion requests
+        elif any(keyword in input_lower for keyword in ['complete order', 'finish order', 'finalize order', 'place order']):
+            if self.restaurant_context.current_order:
+                context_update = "I'll help you complete your order. Let me process this through our POS system."
+            else:
+                context_update = "Your order is empty. Would you like to add some items first?"
+
+        return user_input, context_update
+
     def get_random_conversation_starter(self) -> str:
-        """Get a random conversation starter"""
+        """Get a random restaurant conversation starter"""
         starters = [
-            "Hey there! What's the most interesting thing that happened to you today? 😊",
-            "Hi! I'm in the mood for some good conversation. What's on your mind?",
-            "Hello! I was just thinking about random things. What's your favorite way to spend a lazy Sunday?",
-            "Hey! I love meeting new people through chat. What's something you're passionate about?",
-            "Hi there! I'm curious - if you could have dinner with anyone (living or dead), who would it be?",
-            "Hello! I'm feeling chatty today. What's the last thing that made you laugh really hard?",
-            "Hey! I was just wondering - what's the most random skill you wish you had?",
-            "Hi there! I love learning about people. What's something unique about you that most people don't know?",
-            "Hello! I'm in a great mood today. What's something that always makes you smile?",
-            "Hey! I'm curious about your thoughts. What's the most underrated thing in life, in your opinion?"
+            "Welcome to Bella Vista Ristorante! How can I help you today?",
+            "Hello! I'm here to help you with your dining experience. What would you like to know?",
+            "Good day! Ready to explore our authentic Italian menu?",
+            "Welcome! Are you looking to place an order or learn about our restaurant?",
+            "Hi there! I can help you with our menu, take your order, or answer any questions about Bella Vista!",
+            "Buongiorno! Welcome to our Italian kitchen. What brings you here today?",
+            "Hello! I'm excited to help you discover our delicious Italian cuisine. Where shall we start?",
+            "Welcome! Our wood-fired pizzas and handmade pasta are calling your name. What sounds good?",
+            "Hi there! I can tell you about our specialties, help you order, or answer any questions about our restaurant.",
+            "Good to see you! Our authentic Italian dishes are prepared fresh daily. What can I help you with?"
         ]
 
         import random
         return random.choice(starters)
+
+    def _process_payment_request(self) -> Dict[str, Any]:
+        """Process payment request and return payment information"""
+        if not self.restaurant_context.current_order:
+            return {
+                'can_pay': False,
+                'message': 'Your order is empty. Please add some items first.'
+            }
+
+        # Calculate total
+        total = sum(item['price'] * item['quantity'] for item in self.restaurant_context.current_order)
+        tax = total * 0.085  # 8.5% tax
+        final_total = total + tax
+
+        return {
+            'can_pay': True,
+            'subtotal': total,
+            'tax': tax,
+            'total': final_total,
+            'items': len(self.restaurant_context.current_order),
+            'message': f'Ready to process payment for ${final_total:.2f}'
+        }
+
+    def _process_order_completion(self) -> Dict[str, Any]:
+        """Process order completion request"""
+        if not self.restaurant_context.current_order:
+            return {
+                'can_complete': False,
+                'message': 'Your order is empty. Please add some items first.'
+            }
+
+        # Calculate total
+        total = sum(item['price'] * item['quantity'] for item in self.restaurant_context.current_order)
+        tax = total * 0.085  # 8.5% tax
+        final_total = total + tax
+
+        return {
+            'can_complete': True,
+            'subtotal': total,
+            'tax': tax,
+            'total': final_total,
+            'items': len(self.restaurant_context.current_order),
+            'order_data': self.restaurant_context.current_order,
+            'message': f'Order ready for completion. Total: ${final_total:.2f}'
+        }
 
 # Global chatbot service instance
 chatbot_service = ChatbotService()

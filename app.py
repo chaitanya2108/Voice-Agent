@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, jsonify, send_file
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
 from io import BytesIO
 from flask_cors import CORS
 from chatbot_service import chatbot_service
+from clover_service import clover_service
 from config import Config
 import base64
 import os
@@ -148,6 +149,11 @@ def gemini_tts_page():
 def system_tts_page():
     """System TTS test page"""
     return render_template('system_tts.html')
+
+@app.route('/clover-oauth')
+def clover_oauth_page():
+    """Render the Clover OAuth setup page"""
+    return render_template('clover_oauth.html', config=Config)
 
 @app.route('/api/voice/tts', methods=['POST'])
 def tts_api():
@@ -360,23 +366,23 @@ def chat_tts_api():
 
         # Initialize Gemini client
         try:
-            client = genai.Client(api_key=Config.GEMINI_API_KEY)
+        client = genai.Client(api_key=Config.GEMINI_API_KEY)
         except Exception as e:
             return jsonify({'status': 'error', 'error': f'Failed to initialize Gemini client: {e}'}), 500
 
         # Generate content with single-speaker TTS
         try:
-            response = client.models.generate_content(
+        response = client.models.generate_content(
                 model="gemini-2.5-flash-preview-tts",
-                contents=text,
-                config=types.GenerateContentConfig(
-                    response_modalities=["AUDIO"],
-                    speech_config=types.SpeechConfig(
-                        voice_config=types.VoiceConfig(
-                            prebuilt_voice_config=types.PrebuiltVoiceConfig(
-                                voice_name=voice_name,
-                            )
+            contents=text,
+            config=types.GenerateContentConfig(
+                response_modalities=["AUDIO"],
+                speech_config=types.SpeechConfig(
+                    voice_config=types.VoiceConfig(
+                        prebuilt_voice_config=types.PrebuiltVoiceConfig(
+                            voice_name=voice_name,
                         )
+                    )
                     )
                 )
             )
@@ -439,6 +445,146 @@ def chat_tts_api():
 
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
+
+# Clover POS OAuth Routes
+@app.route('/oauth/authorize')
+def clover_authorize():
+    """Initiate Clover OAuth authorization"""
+    try:
+        # Generate state parameter for security
+        state = str(uuid.uuid4())
+        session['oauth_state'] = state
+
+        # Get authorization URL
+        auth_url = clover_service.get_authorization_url(state)
+
+        return redirect(auth_url)
+    except Exception as e:
+        return jsonify({'error': f'OAuth authorization failed: {str(e)}'}), 500
+
+@app.route('/oauth/callback')
+def clover_callback():
+    """Handle Clover OAuth callback"""
+    try:
+        # Get authorization code from callback
+        code = request.args.get('code')
+        state = request.args.get('state')
+        merchant_id = request.args.get('merchant_id')
+
+        if not code:
+            return jsonify({'error': 'No authorization code received'}), 400
+
+        # Verify state parameter
+        if state != session.get('oauth_state'):
+            return jsonify({'error': 'Invalid state parameter'}), 400
+
+        # Exchange code for token
+        token_result = clover_service.exchange_code_for_token(code)
+
+        if token_result['success']:
+            # Store tokens in session
+            session['clover_access_token'] = token_result['access_token']
+            session['clover_refresh_token'] = token_result['refresh_token']
+            session['clover_merchant_id'] = token_result['merchant_id']
+
+            # Update service instance
+            clover_service.access_token = token_result['access_token']
+            clover_service.refresh_token = token_result['refresh_token']
+            clover_service.merchant_id = token_result['merchant_id']
+
+            return jsonify({
+                'success': True,
+                'message': 'Successfully connected to Clover POS',
+                'merchant_id': token_result['merchant_id']
+            })
+        else:
+            return jsonify({'error': token_result['error']}), 400
+
+    except Exception as e:
+        return jsonify({'error': f'OAuth callback failed: {str(e)}'}), 500
+
+@app.route('/api/clover/status')
+def clover_status():
+    """Get Clover POS connection status"""
+    try:
+        status = clover_service.get_auth_status()
+        return jsonify(status)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clover/sync-menu', methods=['POST'])
+def sync_menu():
+    """Sync restaurant menu with Clover POS"""
+    try:
+        if not clover_service.is_authenticated():
+            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
+
+        # Import restaurant data
+        from restaurant_data import restaurant_context
+
+        # Sync menu
+        result = clover_service.sync_menu_with_clover(restaurant_context.menu)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clover/create-order', methods=['POST'])
+def create_clover_order():
+    """Create order in Clover POS"""
+    try:
+        if not clover_service.is_authenticated():
+            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
+
+        order_data = request.get_json()
+        result = clover_service.create_order(order_data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clover/process-payment', methods=['POST'])
+def process_payment():
+    """Process payment through Clover POS"""
+    try:
+        if not clover_service.is_authenticated():
+            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
+
+        payment_data = request.get_json()
+        result = clover_service.create_payment(payment_data)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clover/atomic-checkout', methods=['POST'])
+def clover_atomic_checkout():
+    """Create an atomic checkout in Clover POS"""
+    try:
+        if not clover_service.is_authenticated():
+            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
+
+        payload = request.get_json() or {}
+        result = clover_service.create_atomic_checkout(payload)
+        status_code = 200 if result.get('success') else 400
+        return jsonify(result), status_code
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@app.route('/api/clover/disconnect', methods=['POST'])
+def disconnect_clover():
+    """Disconnect from Clover POS"""
+    try:
+        # Clear session data
+        session.pop('clover_access_token', None)
+        session.pop('clover_refresh_token', None)
+        session.pop('clover_merchant_id', None)
+
+        # Clear service instance
+        clover_service.access_token = None
+        clover_service.refresh_token = None
+        clover_service.merchant_id = None
+
+        return jsonify({'success': True, 'message': 'Disconnected from Clover POS'})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 # Error handlers
 @app.errorhandler(404)

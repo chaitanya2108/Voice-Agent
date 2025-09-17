@@ -1,11 +1,12 @@
-{% extends "base.html" %} {% block title %}Chat with AI - Flask App{% endblock
-%} {% block content %}
+{% extends "base.html" %} {% block title %}Bella Vista Ristorante - Order
+Assistant{% endblock %} {% block content %}
 <div class="row">
   <div class="col-md-8 mx-auto">
     <div class="card chat-container">
       <div class="card-header bg-primary text-white">
         <h4 class="mb-0">
-          <i class="fas fa-robot me-2"></i>AI Chat Assistant
+          <i class="fas fa-utensils me-2"></i>Bella Vista Ristorante - Order
+          Assistant
           <button
             class="btn btn-sm btn-outline-light float-end"
             onclick="clearChat()"
@@ -14,6 +15,7 @@
             <i class="fas fa-trash"></i>
           </button>
         </h4>
+        <small class="text-light">Authentic Italian Cuisine Since 1985</small>
       </div>
       <div class="card-body p-0">
         <!-- Chat Messages Area -->
@@ -111,22 +113,22 @@
         <div class="card">
           <div class="card-body">
             <h6 class="card-title">
-              <i class="fas fa-brain text-primary"></i> AI Features
+              <i class="fas fa-utensils text-primary"></i> Restaurant Features
             </h6>
             <ul class="list-unstyled mb-0">
               <li>
-                <i class="fas fa-check text-success"></i> Casual conversations
+                <i class="fas fa-check text-success"></i> Menu browsing & search
               </li>
               <li>
-                <i class="fas fa-check text-success"></i> Memory of previous
-                chats
+                <i class="fas fa-check text-success"></i> Order taking &
+                management
               </li>
               <li>
-                <i class="fas fa-check text-success"></i> Random topic
-                suggestions
+                <i class="fas fa-check text-success"></i> Allergen information
               </li>
               <li>
-                <i class="fas fa-check text-success"></i> Empathetic responses
+                <i class="fas fa-check text-success"></i> Restaurant hours &
+                info
               </li>
               <li>
                 <i class="fas fa-check text-success"></i> Voice responses with
@@ -140,24 +142,21 @@
         <div class="card">
           <div class="card-body">
             <h6 class="card-title">
-              <i class="fas fa-cog text-primary"></i> Tips
+              <i class="fas fa-lightbulb text-primary"></i> Quick Commands
             </h6>
             <ul class="list-unstyled mb-0">
               <li>
-                <i class="fas fa-lightbulb text-warning"></i> Ask about
-                anything!
+                <i class="fas fa-utensils text-warning"></i> "Show me the menu"
               </li>
               <li>
-                <i class="fas fa-lightbulb text-warning"></i> Use "Random Topic"
-                for ideas
+                <i class="fas fa-clock text-warning"></i> "What are your hours?"
               </li>
               <li>
-                <i class="fas fa-lightbulb text-warning"></i> The AI remembers
-                our chat
+                <i class="fas fa-shopping-cart text-warning"></i> "I'd like to
+                order..."
               </li>
               <li>
-                <i class="fas fa-lightbulb text-warning"></i> Be yourself and
-                have fun!
+                <i class="fas fa-search text-warning"></i> "Search for pasta"
               </li>
             </ul>
           </div>

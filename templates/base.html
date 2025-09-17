@@ -20,10 +20,17 @@
   <body>
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
       <div class="container">
-        <a class="navbar-brand" href="{{ url_for('index') }}">Flask App</a>
+        <a class="navbar-brand" href="{{ url_for('index') }}"
+          >Bella Vista Ristorante</a
+        >
         <div class="navbar-nav">
           <a class="nav-link" href="{{ url_for('index') }}">Home</a>
-          <a class="nav-link" href="{{ url_for('chat_page') }}">Chat</a>
+          <a class="nav-link" href="{{ url_for('chat_page') }}"
+            >Order Assistant</a
+          >
+          <a class="nav-link" href="{{ url_for('clover_oauth_page') }}"
+            >POS Setup</a
+          >
           <div class="nav-item dropdown">
             <a
               class="nav-link dropdown-toggle"

@@ -17,9 +17,19 @@ class Config:
     MAX_CONVERSATION_HISTORY = 10  # Number of previous messages to keep in context
     CHAT_MODEL_TEMPERATURE = 0.7   # Randomness in responses (0.0 to 1.0)
 
+    # Clover POS configuration
+    CLOVER_APP_ID = os.environ.get('CLOVER_APP_ID')
+    CLOVER_APP_SECRET = os.environ.get('CLOVER_APP_SECRET')
+    CLOVER_BASE_URL = "https://apisandbox.dev.clover.com"  # Sandbox for testing
+    CLOVER_REDIRECT_URI = "http://localhost:5000/oauth/callback"
+
     @staticmethod
     def validate_config():
         """Validate that required configuration is present"""
         if not Config.GEMINI_API_KEY:
             raise ValueError("GEMINI_API_KEY is required but not found in environment variables")
+        if not Config.CLOVER_APP_ID:
+            raise ValueError("CLOVER_APP_ID is required but not found in environment variables")
+        if not Config.CLOVER_APP_SECRET:
+            raise ValueError("CLOVER_APP_SECRET is required but not found in environment variables")
         return True
