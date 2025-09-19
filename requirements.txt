@@ -7,4 +7,3 @@ flask-cors
 google-genai
 pyttsx3
 requests
-openpyxl

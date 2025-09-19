@@ -1,9 +1,9 @@
-from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for
+from flask import Flask, render_template, request, jsonify, send_file, redirect, url_for, session
 from io import BytesIO
 from flask_cors import CORS
 from chatbot_service import chatbot_service
-from clover_service import clover_service
 from config import Config
+from clover_service import clover_service
 import base64
 import os
 import pyttsx3
@@ -15,6 +15,7 @@ from google.genai import types
 
 # Create Flask application instance
 app = Flask(__name__)
+app.secret_key = Config.SECRET_KEY
 
 # Enable CORS for API endpoints
 CORS(app)
@@ -35,6 +36,91 @@ print("TTS engine initialized successfully!")
 def index():
     """Home page route"""
     return render_template('index.html')
+
+@app.route("/oauth")
+def clover_oauth():
+    """Initiate Clover OAuth flow - for testing purposes"""
+    print("=" * 50)
+    print("OAUTH ROUTE CALLED")
+    print("=" * 50)
+    print(f"Request URL: {request.url}")
+    print(f"Request method: {request.method}")
+    print(f"Request headers: {dict(request.headers)}")
+    print(f"Request args: {dict(request.args)}")
+
+    try:
+        # For testing, we'll directly initiate the OAuth flow
+        # In production, this would be triggered from the Clover App Market
+        redirect_uri = request.url_root.rstrip('/') + '/oauth/callback'
+        print(f"Redirect URI: {redirect_uri}")
+
+        # Generate authorization URL
+        auth_url = clover_service.get_oauth_authorization_url(redirect_uri)
+        print(f"Generated OAuth URL: {auth_url}")
+        print(f"Clover service app_id: {clover_service.app_id}")
+        print(f"Clover service oauth_url: {clover_service.oauth_url}")
+
+        # Redirect to Clover for authorization
+        print("Redirecting to Clover OAuth...")
+        return redirect(auth_url)
+
+    except Exception as e:
+        print(f"ERROR in OAuth route: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': 'Failed to initiate OAuth',
+            'details': str(e)
+        }), 500
+
+@app.route("/oauth/authorize")
+def oauth_authorize():
+    """Initiate OAuth authorization with merchant_id"""
+    print("=" * 50)
+    print("OAUTH AUTHORIZE ROUTE CALLED")
+    print("=" * 50)
+    print(f"Request URL: {request.url}")
+    print(f"Request method: {request.method}")
+    print(f"Request args: {dict(request.args)}")
+
+    try:
+        # Get merchant_id from query parameters (sent by Clover)
+        merchant_id = request.args.get('merchant_id')
+        print(f"Merchant ID: {merchant_id}")
+
+        if not merchant_id:
+            print("ERROR: No merchant_id provided")
+            return jsonify({
+                'error': 'Merchant ID is required'
+            }), 400
+
+        # Get the redirect URI for the callback
+        redirect_uri = request.url_root.rstrip('/') + '/oauth/callback'
+        print(f"Redirect URI: {redirect_uri}")
+
+        # Generate authorization URL with merchant_id
+        auth_url = clover_service.get_oauth_authorization_url(redirect_uri)
+        print(f"Generated OAuth URL for merchant {merchant_id}: {auth_url}")
+
+        # Redirect to Clover for authorization
+        print("Redirecting to Clover for authorization...")
+        print(f"User should now see Clover authorization page at: {auth_url}")
+        print("After user authorizes, Clover will redirect back to callback with code")
+        return redirect(auth_url)
+
+    except Exception as e:
+        print(f"ERROR in oauth_authorize: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': 'Failed to initiate OAuth authorization',
+            'details': str(e)
+        }), 500
+
+
+
+
+
 
 @app.route('/api/hello')
 def hello_api():
@@ -149,11 +235,6 @@ def gemini_tts_page():
 def system_tts_page():
     """System TTS test page"""
     return render_template('system_tts.html')
-
-@app.route('/clover-oauth')
-def clover_oauth_page():
-    """Render the Clover OAuth setup page"""
-    return render_template('clover_oauth.html', config=Config)
 
 @app.route('/api/voice/tts', methods=['POST'])
 def tts_api():
@@ -366,13 +447,13 @@ def chat_tts_api():
 
         # Initialize Gemini client
         try:
-        client = genai.Client(api_key=Config.GEMINI_API_KEY)
+            client = genai.Client(api_key=Config.GEMINI_API_KEY)
         except Exception as e:
             return jsonify({'status': 'error', 'error': f'Failed to initialize Gemini client: {e}'}), 500
 
         # Generate content with single-speaker TTS
         try:
-        response = client.models.generate_content(
+            response = client.models.generate_content(
                 model="gemini-2.5-flash-preview-tts",
             contents=text,
             config=types.GenerateContentConfig(
@@ -446,146 +527,6 @@ def chat_tts_api():
     except Exception as e:
         return jsonify({'status': 'error', 'error': str(e)}), 500
 
-# Clover POS OAuth Routes
-@app.route('/oauth/authorize')
-def clover_authorize():
-    """Initiate Clover OAuth authorization"""
-    try:
-        # Generate state parameter for security
-        state = str(uuid.uuid4())
-        session['oauth_state'] = state
-
-        # Get authorization URL
-        auth_url = clover_service.get_authorization_url(state)
-
-        return redirect(auth_url)
-    except Exception as e:
-        return jsonify({'error': f'OAuth authorization failed: {str(e)}'}), 500
-
-@app.route('/oauth/callback')
-def clover_callback():
-    """Handle Clover OAuth callback"""
-    try:
-        # Get authorization code from callback
-        code = request.args.get('code')
-        state = request.args.get('state')
-        merchant_id = request.args.get('merchant_id')
-
-        if not code:
-            return jsonify({'error': 'No authorization code received'}), 400
-
-        # Verify state parameter
-        if state != session.get('oauth_state'):
-            return jsonify({'error': 'Invalid state parameter'}), 400
-
-        # Exchange code for token
-        token_result = clover_service.exchange_code_for_token(code)
-
-        if token_result['success']:
-            # Store tokens in session
-            session['clover_access_token'] = token_result['access_token']
-            session['clover_refresh_token'] = token_result['refresh_token']
-            session['clover_merchant_id'] = token_result['merchant_id']
-
-            # Update service instance
-            clover_service.access_token = token_result['access_token']
-            clover_service.refresh_token = token_result['refresh_token']
-            clover_service.merchant_id = token_result['merchant_id']
-
-            return jsonify({
-                'success': True,
-                'message': 'Successfully connected to Clover POS',
-                'merchant_id': token_result['merchant_id']
-            })
-        else:
-            return jsonify({'error': token_result['error']}), 400
-
-    except Exception as e:
-        return jsonify({'error': f'OAuth callback failed: {str(e)}'}), 500
-
-@app.route('/api/clover/status')
-def clover_status():
-    """Get Clover POS connection status"""
-    try:
-        status = clover_service.get_auth_status()
-        return jsonify(status)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/clover/sync-menu', methods=['POST'])
-def sync_menu():
-    """Sync restaurant menu with Clover POS"""
-    try:
-        if not clover_service.is_authenticated():
-            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
-
-        # Import restaurant data
-        from restaurant_data import restaurant_context
-
-        # Sync menu
-        result = clover_service.sync_menu_with_clover(restaurant_context.menu)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/clover/create-order', methods=['POST'])
-def create_clover_order():
-    """Create order in Clover POS"""
-    try:
-        if not clover_service.is_authenticated():
-            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
-
-        order_data = request.get_json()
-        result = clover_service.create_order(order_data)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/clover/process-payment', methods=['POST'])
-def process_payment():
-    """Process payment through Clover POS"""
-    try:
-        if not clover_service.is_authenticated():
-            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
-
-        payment_data = request.get_json()
-        result = clover_service.create_payment(payment_data)
-        return jsonify(result)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/clover/atomic-checkout', methods=['POST'])
-def clover_atomic_checkout():
-    """Create an atomic checkout in Clover POS"""
-    try:
-        if not clover_service.is_authenticated():
-            return jsonify({'error': 'Not authenticated with Clover POS'}), 401
-
-        payload = request.get_json() or {}
-        result = clover_service.create_atomic_checkout(payload)
-        status_code = 200 if result.get('success') else 400
-        return jsonify(result), status_code
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/clover/disconnect', methods=['POST'])
-def disconnect_clover():
-    """Disconnect from Clover POS"""
-    try:
-        # Clear session data
-        session.pop('clover_access_token', None)
-        session.pop('clover_refresh_token', None)
-        session.pop('clover_merchant_id', None)
-
-        # Clear service instance
-        clover_service.access_token = None
-        clover_service.refresh_token = None
-        clover_service.merchant_id = None
-
-        return jsonify({'success': True, 'message': 'Disconnected from Clover POS'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 # Error handlers
 @app.errorhandler(404)
 def not_found(error):
@@ -594,6 +535,131 @@ def not_found(error):
 @app.errorhandler(500)
 def internal_error(error):
     return render_template('500.html'), 500
+
+
+@app.route('/oauth/callback')
+def oauth_callback():
+    """Handle OAuth callback from Clover"""
+    print("=" * 50)
+    print("OAUTH CALLBACK ROUTE CALLED")
+    print("=" * 50)
+    print(f"Request URL: {request.url}")
+    print(f"Request method: {request.method}")
+    print(f"Request headers: {dict(request.headers)}")
+    print(f"Request args: {dict(request.args)}")
+    print(f"Full query string: {request.query_string}")
+
+    try:
+        # Get parameters from query string
+        code = request.args.get('code')
+        merchant_id = request.args.get('merchant_id')
+        client_id = request.args.get('client_id')
+
+        print(f"OAuth callback received: code={code}, merchant_id={merchant_id}, client_id={client_id}")
+
+        # If we don't have a code but have merchant_id, we need to initiate the OAuth flow
+        if not code and merchant_id:
+            print(f"No authorization code received, but merchant_id present: {merchant_id}")
+            print("This suggests Clover is using a different OAuth flow")
+            print("Redirecting to authorization endpoint...")
+            # Redirect to the authorization endpoint with merchant_id
+            return redirect(url_for('oauth_authorize', merchant_id=merchant_id))
+
+        if not code:
+            return jsonify({
+                'error': 'Authorization code not provided',
+                'received_params': {
+                    'code': code,
+                    'merchant_id': merchant_id,
+                    'client_id': client_id
+                }
+            }), 400
+
+        # Get the redirect URI used in the authorization request
+        redirect_uri = request.url_root.rstrip('/') + '/oauth/callback'
+
+        # Exchange code for tokens
+        token_result = clover_service.exchange_code_for_tokens(code, redirect_uri)
+
+        if token_result['success']:
+            # Store tokens in session
+            session['clover_access_token'] = token_result['access_token']
+            session['clover_refresh_token'] = token_result['refresh_token']
+            session['clover_merchant_id'] = token_result['merchant_id']
+            session['clover_merchant_info'] = token_result['merchant_info']
+
+            # Update the global clover service with tokens
+            clover_service.access_token = token_result['access_token']
+            clover_service.refresh_token = token_result['refresh_token']
+            clover_service.merchant_id = token_result['merchant_id']
+            clover_service.merchant_info = token_result['merchant_info']
+
+            # Redirect to chat page with success message
+            return redirect(url_for('chat_page', oauth_success='true'))
+        else:
+            return jsonify({
+                'error': 'Failed to exchange code for tokens',
+                'details': token_result.get('error', 'Unknown error')
+            }), 500
+
+    except Exception as e:
+        return jsonify({
+            'error': 'OAuth callback failed',
+            'details': str(e)
+        }), 500
+
+@app.route('/api/clover/status')
+def clover_status():
+    """Get Clover POS connection status"""
+    try:
+        # Check if we have tokens in session
+        has_session_tokens = (
+            'clover_access_token' in session and
+            'clover_refresh_token' in session
+        )
+
+        if has_session_tokens:
+            # Update global service with session tokens
+            clover_service.access_token = session['clover_access_token']
+            clover_service.refresh_token = session['clover_refresh_token']
+            clover_service.merchant_id = session.get('clover_merchant_id')
+            clover_service.merchant_info = session.get('clover_merchant_info')
+
+        status = clover_service.get_auth_status()
+        return jsonify(status)
+
+    except Exception as e:
+        return jsonify({
+            'authenticated': False,
+            'error': str(e)
+        }), 500
+
+@app.route('/api/clover/disconnect')
+def clover_disconnect():
+    """Disconnect from Clover POS"""
+    try:
+        # Clear session data
+        session.pop('clover_access_token', None)
+        session.pop('clover_refresh_token', None)
+        session.pop('clover_merchant_id', None)
+        session.pop('clover_merchant_info', None)
+
+        # Clear global service tokens
+        clover_service.access_token = None
+        clover_service.refresh_token = None
+        clover_service.merchant_id = None
+        clover_service.merchant_info = None
+
+        return jsonify({
+            'success': True,
+            'message': 'Disconnected from Clover POS'
+        })
+
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
 
 if __name__ == '__main__':
     # Run the application

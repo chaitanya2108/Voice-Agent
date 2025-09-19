@@ -13,15 +13,16 @@ class Config:
     # Gemini API configuration
     GEMINI_API_KEY = os.environ.get('GEMINI_API_KEY')
 
+    # Clover POS Configuration
+    CLOVER_APP_ID = os.environ.get('CLOVER_APP_ID')
+    CLOVER_APP_SECRET = os.environ.get('CLOVER_APP_SECRET')
+    CLOVER_BASE_URL = "https://apisandbox.dev.clover.com"  # Sandbox URL
+    CLOVER_OAUTH_URL = "https://apisandbox.dev.clover.com/oauth/v2/authorize"
+    CLOVER_TOKEN_URL = "https://apisandbox.dev.clover.com/oauth/v2/token"
+
     # Chat configuration
     MAX_CONVERSATION_HISTORY = 10  # Number of previous messages to keep in context
     CHAT_MODEL_TEMPERATURE = 0.7   # Randomness in responses (0.0 to 1.0)
-
-    # Clover POS configuration
-    CLOVER_APP_ID = os.environ.get('CLOVER_APP_ID')
-    CLOVER_APP_SECRET = os.environ.get('CLOVER_APP_SECRET')
-    CLOVER_BASE_URL = "https://apisandbox.dev.clover.com"  # Sandbox for testing
-    CLOVER_REDIRECT_URI = "http://localhost:5000/oauth/callback"
 
     @staticmethod
     def validate_config():

@@ -1,0 +1,46 @@
+{% extends "base.html" %} {% block title %}Clover POS Connected - Bella Vista
+Ristorante{% endblock %} {% block content %}
+<div class="row">
+  <div class="col-md-6 mx-auto">
+    <div class="card">
+      <div class="card-header bg-success text-white">
+        <h4 class="mb-0">
+          <i class="fas fa-check-circle me-2"></i>Clover POS Connected
+          Successfully!
+        </h4>
+      </div>
+      <div class="card-body text-center">
+        <div class="mb-4">
+          <i class="fas fa-credit-card fa-4x text-success mb-3"></i>
+          <h5>POS System Ready</h5>
+          <p class="text-muted">
+            Your Clover POS system is now connected and ready to process orders
+            and payments.
+          </p>
+        </div>
+
+        <div class="alert alert-info">
+          <strong>Merchant ID:</strong> {{ merchant_id }}<br />
+          <strong>Access Token:</strong> {{ access_token }}
+        </div>
+
+        <div class="d-flex gap-2 justify-content-center">
+          <a href="{{ url_for('chat_page') }}" class="btn btn-primary">
+            <i class="fas fa-utensils me-1"></i>Start Ordering
+          </a>
+          <a href="{{ url_for('index') }}" class="btn btn-outline-secondary">
+            <i class="fas fa-home me-1"></i>Back to Home
+          </a>
+        </div>
+
+        <div class="mt-4">
+          <small class="text-muted">
+            You can now place orders and process payments through our AI
+            assistant!
+          </small>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

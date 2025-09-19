@@ -28,8 +28,11 @@
           <a class="nav-link" href="{{ url_for('chat_page') }}"
             >Order Assistant</a
           >
-          <a class="nav-link" href="{{ url_for('clover_oauth_page') }}"
-            >POS Setup</a
+          <a
+            class="nav-link"
+            href="{{ url_for('clover_oauth') }}"
+            onclick="console.log('Connect POS button clicked - navigating to:', this.href)"
+            >Connect POS</a
           >
           <div class="nav-item dropdown">
             <a

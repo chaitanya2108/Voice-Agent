@@ -16,6 +16,7 @@ Assistant{% endblock %} {% block content %}
           </button>
         </h4>
         <small class="text-light">Authentic Italian Cuisine Since 1985</small>
+        <div id="clover-status" class="mt-2"></div>
       </div>
       <div class="card-body p-0">
         <!-- Chat Messages Area -->
@@ -25,6 +26,28 @@ Assistant{% endblock %} {% block content %}
               <span class="visually-hidden">Loading...</span>
             </div>
             <p class="text-muted">Starting conversation...</p>
+          </div>
+        </div>
+
+        <!-- Clover POS Status -->
+        <div class="clover-status p-3 border-top bg-light">
+          <div class="row align-items-center">
+            <div class="col-md-6">
+              <div id="clover-status" class="text-muted">
+                <i class="fas fa-spinner fa-spin me-1"></i>Checking POS
+                connection...
+              </div>
+            </div>
+            <div class="col-md-6 text-end">
+              <button
+                id="disconnect-pos-btn"
+                class="btn btn-sm btn-outline-danger"
+                style="display: none"
+                onclick="disconnectClover()"
+              >
+                <i class="fas fa-unlink me-1"></i>Disconnect POS
+              </button>
+            </div>
           </div>
         </div>
 
@@ -174,4 +197,44 @@ Assistant{% endblock %} {% block content %}
 </div>
 {% endblock %} {% block extra_js %}
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+<script>
+  // Check Clover connection status on page load
+  async function checkCloverStatus() {
+    try {
+      const response = await fetch("/api/clover/status");
+      const data = await response.json();
+
+      const statusDiv = document.getElementById("clover-status");
+
+      if (data.authenticated) {
+        statusDiv.innerHTML = `
+          <div class="alert alert-success alert-sm mb-0 py-1">
+            <i class="fas fa-check-circle me-1"></i>
+            <strong>Clover POS Connected</strong> - Merchant ID: ${data.merchant_id}
+          </div>
+        `;
+      } else {
+        statusDiv.innerHTML = `
+          <div class="alert alert-warning alert-sm mb-0 py-1">
+            <i class="fas fa-exclamation-triangle me-1"></i>
+            <strong>Clover POS Not Connected</strong> -
+            <a href="/oauth" class="alert-link text-white">Connect Now</a>
+          </div>
+        `;
+      }
+    } catch (error) {
+      console.error("Error checking Clover status:", error);
+      const statusDiv = document.getElementById("clover-status");
+      statusDiv.innerHTML = `
+        <div class="alert alert-danger alert-sm mb-0 py-1">
+          <i class="fas fa-exclamation-circle me-1"></i>
+          <strong>Error checking POS status</strong>
+        </div>
+      `;
+    }
+  }
+
+  // Check status when page loads
+  document.addEventListener("DOMContentLoaded", checkCloverStatus);
+</script>
 {% endblock %}

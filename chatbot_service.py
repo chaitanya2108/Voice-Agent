@@ -7,6 +7,7 @@ from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain.prompts import ChatPromptTemplate, MessagesPlaceholder
 from config import Config
 from restaurant_data import restaurant_context
+from clover_service import clover_service
 
 class ChatbotService:
     """Service class for handling chatbot conversations with memory"""
@@ -28,6 +29,9 @@ class ChatbotService:
 
         # Initialize restaurant context
         self.restaurant_context = restaurant_context
+
+        # Initialize Clover service
+        self.clover_service = clover_service
 
         # Create the prompt template
         self.prompt = self._create_prompt_template()
@@ -57,6 +61,7 @@ Key guidelines:
 
 Current conversation context: {context}
 Current order status: {order_status}
+Clover POS status: {clover_status}
 
 Remember: You're representing Bella Vista Ristorante, so maintain our reputation for excellent service and authentic Italian hospitality."""
 
@@ -104,13 +109,15 @@ Remember: You're representing Bella Vista Ristorante, so maintain our reputation
             # Get current context and order status
             context_summary = self.restaurant_context.get_context_summary()
             order_status = self.restaurant_context.get_current_order()
+            clover_status = "Connected" if self.clover_service.is_authenticated() else "Not connected"
 
             # Create the prompt with history and context
             prompt_input = {
                 "input": processed_input,
                 "history": history_messages,
                 "context": context_summary,
-                "order_status": order_status
+                "order_status": order_status,
+                "clover_status": clover_status
             }
 
             # Format the prompt
@@ -125,16 +132,6 @@ Remember: You're representing Bella Vista Ristorante, so maintain our reputation
             else:
                 response_content = str(response)
 
-            # Handle payment processing if requested
-            payment_info = None
-            if any(keyword in processed_input.lower() for keyword in ['pay', 'payment', 'checkout', 'pay for', 'process payment']):
-                payment_info = self._process_payment_request()
-
-            # Handle order completion if requested
-            order_completion = None
-            if any(keyword in processed_input.lower() for keyword in ['complete order', 'finish order', 'finalize order', 'place order']):
-                order_completion = self._process_order_completion()
-
             # Add messages to chat history
             chat_history.add_user_message(user_input)
             chat_history.add_ai_message(str(response_content))
@@ -144,9 +141,7 @@ Remember: You're representing Bella Vista Ristorante, so maintain our reputation
                 "session_id": session_id,
                 "status": "success",
                 "model": "gemini-1.5-flash",
-                "context_update": context_update,
-                "payment_info": payment_info,
-                "order_completion": order_completion
+                "context_update": context_update
             }
 
         except Exception as e:

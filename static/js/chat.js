@@ -9,6 +9,7 @@ document.addEventListener("DOMContentLoaded", function () {
   console.log("Chat initialized");
   initializeChat();
   setupEventListeners();
+  checkCloverStatus();
 });
 
 function setupEventListeners() {
@@ -320,8 +321,77 @@ function hideTTSLoadingIndicator() {
   }
 }
 
+// Clover POS Integration Functions
+async function checkCloverStatus() {
+  try {
+    const response = await fetch("/api/clover/status");
+    const data = await response.json();
+
+    const statusDiv = document.getElementById("clover-status");
+    const disconnectBtn = document.getElementById("disconnect-pos-btn");
+
+    if (data.authenticated) {
+      const merchantName = data.merchant_info?.name || "Unknown";
+      const merchantId = data.merchant_info?.id || "Unknown";
+      statusDiv.innerHTML = `
+        <div class="alert alert-success alert-sm mb-0 py-1">
+          <i class="fas fa-check-circle me-1"></i>
+          <strong>Clover POS Connected</strong> - ${merchantName} (${merchantId})
+        </div>
+      `;
+      disconnectBtn.style.display = "inline-block";
+    } else {
+      statusDiv.innerHTML = `
+        <div class="alert alert-warning alert-sm mb-0 py-1">
+          <i class="fas fa-exclamation-triangle me-1"></i>
+          <strong>POS Not Connected</strong> -
+          <a href="/oauth" class="alert-link">Connect to Clover POS</a>
+        </div>
+      `;
+      disconnectBtn.style.display = "none";
+    }
+  } catch (error) {
+    console.error("Error checking Clover status:", error);
+    const statusDiv = document.getElementById("clover-status");
+    statusDiv.innerHTML = `
+      <div class="alert alert-danger alert-sm mb-0 py-1">
+        <i class="fas fa-times-circle me-1"></i>
+        <strong>Error checking POS status</strong>
+      </div>
+    `;
+  }
+}
+
+async function disconnectClover() {
+  try {
+    const response = await fetch("/api/clover/disconnect", {
+      method: "POST",
+    });
+    const data = await response.json();
+
+    if (data.success) {
+      // Refresh status
+      await checkCloverStatus();
+      // Show success message
+      addMessageToChat(
+        "assistant",
+        "Successfully disconnected from Clover POS."
+      );
+    } else {
+      addMessageToChat(
+        "assistant",
+        "Failed to disconnect from Clover POS: " + data.error
+      );
+    }
+  } catch (error) {
+    console.error("Error disconnecting from Clover:", error);
+    addMessageToChat("assistant", "Error disconnecting from Clover POS.");
+  }
+}
+
 // Export functions for global access
 window.sendMessage = sendMessage;
 window.getRandomStarter = getRandomStarter;
 window.clearChat = clearChat;
 window.handleKeyPress = handleKeyPress;
+window.disconnectClover = disconnectClover;
